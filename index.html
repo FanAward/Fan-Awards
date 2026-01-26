@@ -283,7 +283,7 @@ function showGrid() {
 }
 
 function unlockAdmin() {
-    if (prompt("Enter password:") === "fan2award") {
+    if (prompt("Enter password:") === "fan award") {
         document.getElementById('results-panel').style.display = 'block';
         db.ref('global_votes').on('value', (snapshot) => {
             renderResults(snapshot.val() || {});
@@ -332,4 +332,5 @@ function confirmReset() {
 initGrid();
 </script>
 </body>
+
 </html>
