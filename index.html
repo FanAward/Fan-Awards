@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fan Award | الإدارة والنتائج</title>
+<title>Fan Award</title>
 
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
@@ -283,7 +283,7 @@ function showGrid() {
 }
 
 function unlockAdmin() {
-    if (prompt("Enter password:") === "fan award") {
+    if (prompt("Enter password:") === "fan_award") {
         document.getElementById('results-panel').style.display = 'block';
         db.ref('global_votes').on('value', (snapshot) => {
             renderResults(snapshot.val() || {});
@@ -334,3 +334,4 @@ initGrid();
 </body>
 
 </html>
+
