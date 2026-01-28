@@ -557,6 +557,180 @@ function confirmReset() {
 initGrid();
 </script>
 </body>
+</html>pg"},
+            {name: "Fatima", img: "https://i.postimg.cc/K89HdJ1t/IMG-20260125-120922.jpg"},
+            {name: "Aya", img: "https://i.postimg.cc/zXBFH5dn/ayosh-fa-16-14041106-114026409.jpg"},
+            {name: "Alla", img: "https://i.postimg.cc/3NwmGCZR/lanax-97-14041106-113841657.jpg"}
+        ]
+    },
+    {
+        title: "الفانز المفضل",
+        cover: "https://i.postimg.cc/L53ScwYB/Picsart-26-01-25-14-06-23-331.png",
+        candidates: [
+            {name: "Aziz", img: "https://i.postimg.cc/J0XYfL96/narinvsn-14041106-111648574.jpg"},
+            {name: "Fras", img: "https://i.postimg.cc/d1y9194Z/ghaith-fras-14041106-111624327.jpg"},
+            {name: "Rami", img: "https://i.postimg.cc/7ZwtWjX7/talin-family3-14041106-111638529.jpg"},
+            {name: "Mrs Avocado", img: "https://i.postimg.cc/65BkG7Rc/ghaithxsara-fans-14041106-104153672.jpg"},
+            {name: "Osama", img: "https://i.postimg.cc/6pbVfPP4/mqnrt-14041106-111611071.jpg"},
+            {name: "Mutasem", img: "https://i.postimg.cc/0ykZfD2S/ghaith-ediit-14041106-111631582.jpg"}
+        ]
+    }
+];
+
+let votedCategories = JSON.parse(localStorage.getItem('votedCategories')) || {};
+let isVotingEnabled = true;
+
+// مراقبة حالة التصويت من Firebase
+db.ref('settings/voting_enabled').on('value', (snapshot) => {
+    isVotingEnabled = snapshot.val() !== false; // القيمة الافتراضية true
+    updateVotingUI();
+});
+
+function updateVotingUI() {
+    const btn = document.getElementById('toggle-voting-btn');
+    const msg = document.getElementById('voting-status-msg');
+    
+    if (isVotingEnabled) {
+        btn.innerText = "⏸️ إيقاف التصويت مؤقتاً";
+        btn.className = "stop";
+        msg.innerText = "";
+    } else {
+        btn.innerText = "▶️ تفعيل التصويت الآن";
+        btn.className = "start";
+        msg.innerText = "⚠️ التصويت متوقف حالياً..";
+    }
+
+    // تعطيل/تفعيل أزرار التصويت في الصفحة
+    const voteButtons = document.querySelectorAll('.candidate button');
+    voteButtons.forEach(b => b.disabled = !isVotingEnabled);
+}
+
+function initGrid() {
+    const grid = document.getElementById('main-grid');
+    grid.innerHTML = '';
+    categoriesData.forEach((cat, index) => {
+        const isVoted = votedCategories[cat.title];
+        const card = document.createElement('div');
+        card.className = 'category-card';
+        if(isVoted) card.style.opacity = "0.5";
+        card.innerHTML = `<img src="${cat.cover}"><h3>${cat.title}</h3>`;
+        card.onclick = () => openCategory(index);
+        grid.appendChild(card);
+    });
+    updateProgressBar();
+}
+
+function openCategory(index) {
+    if (votedCategories[categoriesData[index].title]) {
+        let next = categoriesData.findIndex(c => !votedCategories[c.title]);
+        if (next !== -1) openCategory(next);
+        else showGrid();
+        return;
+    }
+    document.getElementById('main-grid').style.display = 'none';
+    document.getElementById('voting-area').style.display = 'block';
+    const cat = categoriesData[index];
+    document.getElementById('current-category-title').innerText = cat.title;
+    const container = document.getElementById('candidates-container');
+    container.innerHTML = '';
+    cat.candidates.forEach(can => {
+        const div = document.createElement('div');
+        div.className = 'candidate';
+        div.innerHTML = `
+            <img src="${can.img}">
+            <p>${can.name}</p>
+            <button ${!isVotingEnabled ? 'disabled' : ''} onclick="vote('${cat.title}', '${can.name}', ${index})">Vote</button>
+        `;
+        container.appendChild(div);
+    });
+    window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function vote(category, candidate, currentIndex) {
+    if (!isVotingEnabled) {
+        alert("عذراً، التصويت مغلق حالياً من قبل الإدارة.");
+        return;
+    }
+
+    const voteRef = db.ref('global_votes/' + category + '/' + candidate);
+    voteRef.transaction((currentValue) => {
+        return (currentValue || 0) + 1;
+    });
+
+    votedCategories[category] = true;
+    localStorage.setItem('votedCategories', JSON.stringify(votedCategories));
+    updateProgressBar();
+    
+    let nextIndex = currentIndex + 1;
+    if (nextIndex < categoriesData.length) openCategory(nextIndex);
+    else { alert("Thank you for voting!"); showGrid(); }
+}
+
+function updateProgressBar() {
+    const percent = (Object.keys(votedCategories).length / categoriesData.length) * 100;
+    document.getElementById("progress-bar").style.width = percent + "%";
+}
+
+function showGrid() {
+    document.getElementById('main-grid').style.display = 'grid';
+    document.getElementById('voting-area').style.display = 'none';
+    initGrid();
+}
+
+function unlockAdmin() {
+    if (prompt("Enter password:") === "fan_award") {
+        document.getElementById('results-panel').style.display = 'block';
+        db.ref('global_votes').on('value', (snapshot) => {
+            renderResults(snapshot.val() || {});
+        });
+        window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});
+    } else {
+        alert("كلمة مرور خاطئة!");
+    }
+}
+
+function toggleVoting() {
+    db.ref('settings/voting_enabled').set(!isVotingEnabled);
+}
+
+function renderResults(data) {
+    let html = "";
+    categoriesData.forEach(cat => {
+        let catVotes = data[cat.title] || {};
+        let winner = { name: "لا يوجد", count: -1 };
+        let candidatesHtml = "";
+        
+        cat.candidates.forEach(can => {
+            let count = catVotes[can.name] || 0;
+            candidatesHtml += `<div class="candidate-score"><span>${can.name}</span> <b>${count} أصوات</b></div>`;
+            if (count > winner.count) winner = { name: can.name, count: count };
+        });
+
+        html += `
+            <div class="category-result">
+                <h3 style="color:var(--primary-gold)">● ${cat.title}</h3>
+                ${candidatesHtml}
+                <span class="winner-tag">🏆 الفائز حالياً: ${winner.name}</span>
+            </div>`;
+    });
+    document.getElementById('results-content').innerHTML = html;
+}
+
+function openResetModal() { document.getElementById('resetModal').style.display = 'flex'; }
+function closeResetModal() { document.getElementById('resetModal').style.display = 'none'; }
+
+function confirmReset() {
+    db.ref('global_votes').remove().then(() => {
+        localStorage.removeItem('votedCategories');
+        closeResetModal();
+        alert("تم تصفير جميع النتائج عالمياً بنجاح.");
+        location.reload();
+    });
+}
+
+initGrid();
+</script>
+</body>
 </html>postimg.cc/d1y9194Z/ghaith-fras-14041106-111624327.jpg"},
             {name: "Rami", img: "https://i.postimg.cc/7ZwtWjX7/talin-family3-14041106-111638529.jpg"},
             {name: "Mrs Avocado", img: "https://i.postimg.cc/65BkG7Rc/ghaithxsara-fans-14041106-104153672.jpg"},
@@ -1074,3 +1248,4 @@ initGrid();
 </script>
 </body>
         </html>
+
