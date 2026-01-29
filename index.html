@@ -137,10 +137,10 @@
 <div id="resetModal" class="modal-overlay">
     <div class="modal-box">
         <h3 style="color: #fff;">تحذير!</h3>
-        <p>هل أنت متأكد أنك تريد إعادة تعيين كافة التصويتات؟</p>
+        <p>هل أنت متأكد أنك تريد إعادة تعيين كافة التصويتات؟ سيتم السماح للجميع بالتصويت مجدداً.</p>
         <div class="modal-buttons">
-            <button class="btn-yes" onclick="confirmReset()">Yes</button>
-            <button class="btn-cancel" onclick="closeResetModal()">Cancel</button>
+            <button class="btn-yes" onclick="confirmReset()">نعم، متأكد</button>
+            <button class="btn-cancel" onclick="closeResetModal()">إلغاء</button>
         </div>
     </div>
 </div>
@@ -159,6 +159,18 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
+// --- نظام التصفير التلقائي للأجهزة ---
+db.ref('settings/reset_token').on('value', (snapshot) => {
+    const serverToken = snapshot.val();
+    const localToken = localStorage.getItem('lastResetToken');
+    if (serverToken && serverToken != localToken) {
+        localStorage.removeItem('votedCategories');
+        localStorage.setItem('lastResetToken', serverToken);
+        location.reload(); 
+    }
+});
+// ------------------------------------
 
 const categoriesData = [
     {
@@ -359,11 +371,19 @@ function closeResetModal() {
 }
 
 function confirmReset() {
-    db.ref('global_votes').remove().then(() => {
+    const newToken = Date.now();
+    // تصفير قاعدة البيانات وتحديث مفتاح الأمان لجميع المستخدمين
+    db.ref().update({
+        'global_votes': null,
+        'settings/reset_token': newToken
+    }).then(() => {
         localStorage.removeItem('votedCategories');
+        localStorage.setItem('lastResetToken', newToken);
         closeResetModal();
-        alert("تم تصفير جميع النتائج عالمياً بنجاح.");
+        alert("تم تصفير جميع النتائج بنجاح وإتاحة التصويت للجميع.");
         location.reload();
+    }).catch(err => {
+        alert("حدث خطأ أثناء التصفير: " + err.message);
     });
 }
 
